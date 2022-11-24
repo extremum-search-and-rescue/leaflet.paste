@@ -45,7 +45,7 @@
         }
     },
     getAndSubmitLink: function(text) {
-        if (text.indexOf(PageModel.backendAddress) > -1 || text.indexOf(PageModel.frontendAddress) > -1) {
+        if (text.indexOf(Gis.Site.BackendAddress()) > -1 || text.indexOf(Gis.Site.Address()) > -1) {
             window.location = text;
         }
     },
