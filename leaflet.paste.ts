@@ -3,37 +3,33 @@
     export type LeafletPasteCreatedFn = (event: LeafletPasteCreated) => void
 
     export interface Evented {
-        fire(event: "paste:layer-created", data: L.LeafletPasteCreated, context?: any)
-        on(event: "paste:layer-created", data: L.LeafletPasteCreatedFn, context?: any)
-        once(event: "paste:layer-created", data: L.LeafletPasteCreatedFn, context?: any)
-        off(event: "paste:layer-created", data: L.LeafletPasteCreatedFn, context?: any)
+        fire(event: "paste:layer-created", data: L.LeafletPasteCreated, context?: any): this
+        on(event: "paste:layer-created", data: L.LeafletPasteCreatedFn, context?: any): this
+        once(event: "paste:layer-created", data: L.LeafletPasteCreatedFn, context?: any): this
+        off(event: "paste:layer-created", data: L.LeafletPasteCreatedFn, context?: any): this
     }
-
+    export interface Map extends Evented {
+        pasteHandler: L.Paste
+    }
+    export interface MapOptions {
+        pasteHandler: boolean
+    }
     export class Paste extends L.Handler {
         private _map: L.Map;
-
-        initialize (map: L.Map, options: L.MapOptions) {
+        private REGEXP_GEOJSON: RegExp = /.*?[{[].*[}\]].*?/
+        initialize (map: L.Map) {
             this._map = map;
         }
 
-        addHooks() {
+        override addHooks() {
             if (this._map) {
                 L.DomEvent.on(this._map.getContainer(), 'paste', this.onclipboard, this);
             }
         }
 
-        removeHooks() {
+        override removeHooks() {
             if (this._map) {
                 L.DomEvent.off(this._map.getContainer(), 'paste', this.onclipboard, this);
-            }
-        }
-
-        toggle() {
-            if (this.enabled()) {
-                this.disable();
-            }
-            else {
-                this.enable();
             }
         }
 
@@ -62,18 +58,18 @@
         }
 
         convertPastedTextToLayer (text: string) {
-            let centerLatLng;
+            let centerLatLng: L.LatLng;
             try {
                 const isValidObject = Gis.Clipboard.canBeConvertedToLayer(text);
                 if (isValidObject && text.indexOf('{') > -1 && text.indexOf('geometry') > -1) {
-                    let geoJson = JSON.parse(text.match(new RegExp(/.*?[{[].*[}\]].*?/))[0]);
+                    let geoJson = JSON.parse(text.match(this.REGEXP_GEOJSON)[0]);
                     if (geoJson) {
-                        if (geoJson && geoJson.length) {
+                        if (geoJson.length) {
                             for (let i = 0; i < geoJson.length; i++) {
                                 createEditableFromGeoJSON(geoJson[i]);
                             }
                             this._map.fire('gis:notify', { message: `Вставлено объектов: ${geoJson.length}` })
-                        } else if (geoJson) {
+                        } else {
                             createEditableFromGeoJSON(geoJson);
                             this._map.fire('gis:notify', { message: 'Вставлен новый объект' })
                         }
@@ -83,11 +79,16 @@
                     if (layers.length > 0) {
                         let i = 0;
                         for (; i < layers.length; i++) {
-                            createEditableFromGeoJSON(layers[i].toStyledGeoJSON());  
+                            createEditableFromGeoJSON(layers[i].feature || layers[i]);  
                         }
-                        centerLatLng = layers[0]._latlng ||
-                            (layers[0]._latlngs && layers[0]._latlngs[0][0]) ||
-                            (layers[0]._latlngs && layers[0]._latlngs[0]);
+                        const firstLayer = layers[0];
+                        if (firstLayer instanceof L.EditableGisCircle || firstLayer instanceof L.EditableGisMarker)
+                            centerLatLng = firstLayer.getLatLng();
+                        else {
+                            centerLatLng = firstLayer.getBounds && firstLayer.getBounds()[0][0] ||
+                                firstLayer.getBounds && firstLayer.getBounds()[0]
+                        }
+                     
                         this._map.fire('gis:notify', { message: `Добавлено объектов: ${i}` })
                     }
                 }
@@ -112,7 +113,7 @@
                 if (e instanceof Error) {
                     err = { message: e.message };
                 }
-                this.fire('error', err);
+                this._map.fire('paste:error', err);
             }
         }
 
@@ -124,7 +125,7 @@
             }
 
             if (!L.Paste.hasOwnProperty(type)) {
-                throw new Error('Unknown data type: %s.', type);
+                throw new Error(`Unknown data type: ${type}`);
             }
 
             layer = L.Paste[type].call(this, value);
@@ -136,8 +137,8 @@
         }
     }
 
-    export function pasteHandler (opts) {
-        return new L.Paste(opts);
+    export function pasteHandler (map: L.Map) {
+        return new L.Paste(map);
     }
 }
 
