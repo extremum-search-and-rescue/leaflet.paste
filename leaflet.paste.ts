@@ -85,8 +85,7 @@
                         if (firstLayer instanceof L.EditableGisCircle || firstLayer instanceof L.EditableGisMarker)
                             centerLatLng = firstLayer.getLatLng();
                         else {
-                            centerLatLng = firstLayer.getBounds && firstLayer.getBounds()[0][0] ||
-                                firstLayer.getBounds && firstLayer.getBounds()[0]
+                            centerLatLng = firstLayer.getBounds && firstLayer.getBounds().getCenter();
                         }
                      
                         this._map.fire('gis:notify', { message: `Добавлено объектов: ${i}` })
