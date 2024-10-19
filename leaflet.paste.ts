@@ -23,13 +23,13 @@
 
         override addHooks() {
             if (this._map) {
-                L.DomEvent.on(this._map.getContainer(), 'paste', this.onclipboard, this);
+                L.DomEvent.on(this._map.getContainer().parentElement, 'paste', this.onclipboard, this);
             }
         }
 
         override removeHooks() {
             if (this._map) {
-                L.DomEvent.off(this._map.getContainer(), 'paste', this.onclipboard, this);
+                L.DomEvent.off(this._map.getContainer().parentElement, 'paste', this.onclipboard, this);
             }
         }
 
@@ -95,44 +95,6 @@
             } catch (e) {
                 console.error(e);
             }
-        }
-
-        submit(e) {
-            var value = e.target[0].value,
-                type = e.target[1].value;
-
-            try {
-                this._process(value, type);
-                this.disable();
-            }
-            catch (e) {
-                var err = e;
-
-                // Leaflet's fire() seems to clobber Error objects.
-                if (e instanceof Error) {
-                    err = { message: e.message };
-                }
-                this._map.fire('paste:error', err);
-            }
-        }
-
-        _process(value, type) {
-            var layer;
-
-            if (!value) {
-                throw new Error('You must add a valid geometry.');
-            }
-
-            if (!L.Paste.hasOwnProperty(type)) {
-                throw new Error(`Unknown data type: ${type}`);
-            }
-
-            layer = L.Paste[type].call(this, value);
-            const center = layer.getBounds().getCenter();
-
-            layer.addTo(this._map);
-            this._map.fire('paste:layer-created', { layer: layer });
-            this._map.panTo(center);
         }
     }
 
